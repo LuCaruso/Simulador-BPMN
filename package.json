@@ -1,0 +1,15 @@
+{
+  "name": "simulador-bpmn",
+  "version": "1.0.0",
+  "description": "Simulador e editor de diagramas BPMN 2.0 (OMG BPMN 2.0.2) - executa arquivos .bpmn com animacao de tokens e permite criar diagramas na propria ferramenta.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js --port 3000"
+  },
+  "engines": { "node": ">=16.0.0" },
+  "dependencies": {},
+  "devDependencies": {},
+  "private": true,
+  "license": "MIT"
+}

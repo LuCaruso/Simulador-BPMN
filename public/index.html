@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Simulador BPMN 2.0</title>
+<script>
+  /* Define o tema antes de pintar a tela, para nao piscar. */
+  (function () {
+    try {
+      var p = localStorage.getItem('simuladorBpmn.tema') || 'sistema';
+      var escuro = p === 'dark' || (p === 'sistema' &&
+        window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.setAttribute('data-tema', escuro ? 'dark' : 'light');
+    } catch (e) {
+      document.documentElement.setAttribute('data-tema', 'light');
+    }
+  })();
+</script>
+<link rel="stylesheet" href="css/app.css" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23e50505'/%3E%3Ccircle cx='10' cy='16' r='5' fill='none' stroke='%23fff' stroke-width='2.2'/%3E%3Crect x='19' y='10' width='11' height='12' rx='3' fill='none' stroke='%23fff' stroke-width='2.2'/%3E%3C/svg%3E" />
+</head>
+<body>
+
+<header class="topo">
+  <div class="marca">
+    <svg viewBox="0 0 40 40" class="logo" aria-hidden="true">
+      <rect width="40" height="40" rx="7" class="logo-fundo" />
+      <circle cx="13" cy="20" r="5.5" class="logo-ev" />
+      <rect x="22" y="14" width="12" height="12" rx="3" class="logo-tk" />
+    </svg>
+    <div>
+      <h1>Simulador BPMN 2.0</h1>
+      <span id="titulo-arquivo">Novo diagrama</span>
+    </div>
+  </div>
+
+  <div class="grupo-topo">
+    <select id="lista-arquivos" title="Diagramas disponiveis na pasta /diagramas"></select>
+    <button id="btn-recarregar-lista" class="btn icone" title="Recarregar lista">&#8635;</button>
+    <label class="btn" title="Abrir um .bpmn do seu computador">
+      Abrir arquivo
+      <input type="file" id="input-arquivo" accept=".bpmn,.xml" hidden />
+    </label>
+  </div>
+
+  <div class="grupo-topo">
+    <button id="btn-novo" class="btn" title="Diagrama em branco (processo simples)">Novo</button>
+    <button id="btn-novo-piscinas" class="btn" title="Diagrama novo com piscina e raias">Novo com raias</button>
+    <button id="btn-salvar" class="btn primario" title="Salvar na pasta /diagramas">Salvar</button>
+    <button id="btn-salvar-como" class="btn" title="Salvar com outro nome">Salvar como</button>
+  </div>
+
+  <div class="grupo-topo">
+    <button id="btn-exportar-bpmn" class="btn" title="Baixar o arquivo .bpmn">.bpmn</button>
+    <button id="btn-exportar-svg" class="btn" title="Exportar imagem vetorial">SVG</button>
+    <button id="btn-exportar-png" class="btn" title="Exportar imagem PNG">PNG</button>
+  </div>
+
+  <div class="grupo-topo direita">
+    <div class="tema-controle" id="tema-controle" role="group" aria-label="Tema da interface">
+      <button data-tema-opcao="light" title="Tema claro" aria-label="Tema claro">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M4.2 4.2l1.6 1.6M18.2 18.2l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.2 19.8l1.6-1.6M18.2 5.8l1.6-1.6"/></svg>
+      </button>
+      <button data-tema-opcao="dark" title="Tema escuro" aria-label="Tema escuro">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.3A8.6 8.6 0 0 1 9.7 3.5a8.6 8.6 0 1 0 10.8 10.8z"/></svg>
+      </button>
+      <button data-tema-opcao="sistema" title="Acompanhar o tema do sistema" aria-label="Tema do sistema">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.8" y="4.3" width="18.4" height="12.4" rx="2"/><path d="M8.5 20.2h7"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="corpo">
+
+  <!-- ------------------------------------------------ paleta -->
+  <aside class="lateral-esq">
+    <div class="barra-ferramentas">
+      <button id="btn-selecionar" class="btn-modo ativo" title="Selecionar / mover (Esc)">&#10530; Selecionar</button>
+      <button id="btn-conectar" class="btn-modo" title="Criar fluxo de sequencia">&#8594; Sequencia</button>
+      <button id="btn-conectar-msg" class="btn-modo" title="Criar fluxo de mensagem entre piscinas">&#8594; Mensagem</button>
+    </div>
+    <div class="barra-ferramentas">
+      <button id="btn-borda-timer" class="btn pequeno" title="Anexar evento de borda de temporizador a atividade selecionada">+ Borda tempo</button>
+      <button id="btn-borda-erro" class="btn pequeno" title="Anexar evento de borda de erro a atividade selecionada">+ Borda erro</button>
+      <button id="btn-excluir" class="btn pequeno perigo" title="Excluir selecao (Delete)">Excluir</button>
+    </div>
+    <div class="barra-ferramentas">
+      <button id="btn-desfazer" class="btn pequeno" title="Desfazer (Ctrl+Z)" disabled>Desfazer</button>
+      <button id="btn-refazer" class="btn pequeno" title="Refazer (Ctrl+Y)" disabled>Refazer</button>
+      <button id="btn-reorganizar" class="btn pequeno" title="Reorganizar automaticamente">Auto-layout</button>
+    </div>
+    <label class="check-linha">
+      <input type="checkbox" id="chk-fixar-paleta" />
+      <span>Manter ferramenta ativa apos inserir</span>
+    </label>
+
+    <div id="paleta" class="paleta"></div>
+  </aside>
+
+  <!-- ------------------------------------------------ canvas -->
+  <main class="area-canvas">
+    <svg id="canvas" data-modo="selecionar"></svg>
+
+    <div class="hud">
+      <button id="btn-zoom-menos" class="btn icone" title="Reduzir">&#8722;</button>
+      <button id="btn-zoom-mais" class="btn icone" title="Ampliar">+</button>
+      <button id="btn-ajustar" class="btn icone" title="Ajustar a tela">&#9974;</button>
+    </div>
+
+    <div class="hud-sim">
+      <button id="btn-play" class="btn play">Iniciar</button>
+      <button id="btn-passo" class="btn" title="Avancar 1 segundo simulado">Passo</button>
+      <button id="btn-reset" class="btn" title="Reiniciar simulacao">Reiniciar</button>
+      <span id="indicador-sim" class="indicador off">parada</span>
+      <span class="hud-vel">
+        <label for="vel">Velocidade</label>
+        <input type="range" id="vel" min="1" max="200" value="20" />
+        <span id="vel-valor">20x</span>
+      </span>
+    </div>
+
+    <div id="dica" class="dica"></div>
+  </main>
+
+  <!-- ------------------------------------------------ painel direito -->
+  <aside class="lateral-dir">
+    <nav id="painel-abas">
+      <button data-aba="simulacao" class="ativo">Simulacao</button>
+      <button data-aba="propriedades">Propriedades</button>
+      <button data-aba="validacao">Validacao <span id="badge-validacao" class="badge oculto"></span></button>
+      <button data-aba="estatisticas">Estatisticas</button>
+      <button data-aba="legenda">Legenda</button>
+    </nav>
+
+    <!-- Simulacao -->
+    <section id="aba-simulacao" class="painel-aba">
+      <div class="contadores">
+        <div><span>Tempo simulado</span><strong id="c-tempo">0s</strong></div>
+        <div><span>Instancias</span><strong id="c-instancias">0 / 0</strong></div>
+        <div><span>Tokens ativos</span><strong id="c-tokens">0</strong></div>
+        <div><span>Ciclo medio</span><strong id="c-ciclo">-</strong></div>
+      </div>
+
+      <details class="config" open>
+        <summary>Parametros da simulacao</summary>
+        <div class="grade-config">
+          <label>Evento de inicio
+            <select id="cfg-inicio"></select>
+          </label>
+          <label>Instancias a criar
+            <input type="number" id="cfg-instancias" min="1" max="200" value="1" />
+          </label>
+          <label>Intervalo entre chegadas (s)
+            <input type="number" id="cfg-intervalo" min="1" value="90" />
+          </label>
+          <label>Duracao padrao min (s)
+            <input type="number" id="cfg-durmin" min="1" value="30" />
+          </label>
+          <label>Duracao padrao max (s)
+            <input type="number" id="cfg-durmax" min="1" value="120" />
+          </label>
+          <label>Tempo no fluxo (s)
+            <input type="number" id="cfg-transito" min="1" value="3" />
+          </label>
+          <label>Espera de mensagem externa (s)
+            <input type="number" id="cfg-msg" min="1" value="20" />
+          </label>
+          <label>Decisao nos gateways
+            <select id="cfg-decisao">
+              <option value="automatico">Automatica (probabilidades)</option>
+              <option value="perguntar">Perguntar a cada decisao</option>
+            </select>
+          </label>
+        </div>
+        <label class="check-linha">
+          <input type="checkbox" id="chk-mapa-calor" />
+          <span>Mapa de calor (frequencia de execucao)</span>
+        </label>
+      </details>
+
+      <div class="log-cabecalho">
+        <h3>Registro de execucao</h3>
+        <button id="btn-limpar-log" class="btn pequeno">Limpar</button>
+      </div>
+      <div id="sim-log" class="log"></div>
+    </section>
+
+    <!-- Propriedades -->
+    <section id="aba-propriedades" class="painel-aba oculto">
+      <div id="props-conteudo"></div>
+    </section>
+
+    <!-- Validacao -->
+    <section id="aba-validacao" class="painel-aba oculto">
+      <div class="log-cabecalho">
+        <h3>Conformidade BPMN 2.0.2</h3>
+        <button id="btn-validar" class="btn pequeno">Revalidar</button>
+      </div>
+      <div id="validacao-conteudo"></div>
+    </section>
+
+    <!-- Estatisticas -->
+    <section id="aba-estatisticas" class="painel-aba oculto">
+      <div class="log-cabecalho">
+        <h3>Indicadores</h3>
+        <button id="btn-exportar-csv" class="btn pequeno">Exportar CSV</button>
+      </div>
+      <div id="estat-conteudo"></div>
+    </section>
+
+    <!-- Legenda -->
+    <section id="aba-legenda" class="painel-aba oculto">
+      <h3>Elementos essenciais do BPMN</h3>
+      <p class="nota">Fonte: OMG <em>Business Process Model and Notation</em> v2.0.2 (formal/13-12-09) e
+      <em>BPMN 2.0 by Example</em> (dtc/2010-06-02).</p>
+
+      <h4>Objetos de fluxo</h4>
+      <ul class="legenda">
+        <li><b>Evento</b> (circulo): algo que acontece. Inicio (linha fina), intermediario (linha dupla) e fim (linha grossa).</li>
+        <li><b>Atividade</b> (retangulo arredondado): trabalho realizado. Tarefa, subprocesso ou chamada.</li>
+        <li><b>Gateway</b> (losango): controla divergencia e convergencia do fluxo.</li>
+      </ul>
+
+      <h4>Objetos de conexao</h4>
+      <ul class="legenda">
+        <li><b>Fluxo de sequencia</b>: linha solida com ponta cheia. Nunca cruza a fronteira de uma piscina.</li>
+        <li><b>Fluxo de mensagem</b>: linha tracejada com circulo na origem e ponta vazada. So liga piscinas diferentes.</li>
+        <li><b>Associacao</b>: linha pontilhada, liga artefatos a elementos do fluxo.</li>
+      </ul>
+
+      <h4>Raias</h4>
+      <ul class="legenda">
+        <li><b>Piscina</b>: um participante do processo (organizacao, papel, sistema).</li>
+        <li><b>Raia</b>: subdivisao da piscina, normalmente por area ou funcao responsavel.</li>
+      </ul>
+
+      <h4>Artefatos e dados</h4>
+      <ul class="legenda">
+        <li><b>Objeto de dados</b>, <b>armazenamento de dados</b>, <b>anotacao de texto</b> e <b>agrupamento</b>.</li>
+      </ul>
+
+      <h4>Semantica dos gateways na simulacao</h4>
+      <ul class="legenda">
+        <li><b>Exclusivo (X)</b>: divergente segue um unico caminho; convergente repassa cada token sem sincronizar.</li>
+        <li><b>Paralelo (+)</b>: divergente gera um token por saida; convergente espera todas as entradas.</li>
+        <li><b>Inclusivo (O)</b>: divergente ativa todos os caminhos verdadeiros; convergente sincroniza os que ainda podem chegar.</li>
+        <li><b>Baseado em evento</b>: vence o evento que ocorre primeiro.</li>
+      </ul>
+
+      <h4>Identidade visual</h4>
+      <p class="nota">Cores e tipografia seguem o <b>Guia de Marca do Insper</b> (abril/2024):
+      vermelho PANTONE 2034 C, preto e branco como cores principais; turquesa, verde, amarelo,
+      laranja, rosa e roxo como secundarias; tipografia digital <b>Inter</b>.</p>
+      <div class="amostras-cor">
+        <span class="amostra"><i style="background:#E50505"></i>#E50505 Vermelho</span>
+        <span class="amostra"><i style="background:#000000"></i>#000000 Preto</span>
+        <span class="amostra"><i style="background:#FFFFFF"></i>#FFFFFF Branco</span>
+        <span class="amostra"><i style="background:#3ACC9F"></i>#3ACC9F Turquesa</span>
+        <span class="amostra"><i style="background:#92D053"></i>#92D053 Verde</span>
+        <span class="amostra"><i style="background:#FFCC00"></i>#FFCC00 Amarelo</span>
+        <span class="amostra"><i style="background:#F89D49"></i>#F89D49 Laranja</span>
+        <span class="amostra"><i style="background:#F47DCD"></i>#F47DCD Rosa</span>
+        <span class="amostra"><i style="background:#730D9F"></i>#730D9F Roxo</span>
+        <span class="amostra"><i style="background:#0E171D"></i>#0E171D Azul escuro</span>
+      </div>
+      <p class="nota">O tema escuro usa o azul PANTONE 5395 C como base e as cores secundarias
+      em cheio, que ganham contraste sobre fundo escuro. O seletor no canto superior direito
+      alterna entre <b>claro</b>, <b>escuro</b> e <b>sistema</b>; a escolha fica salva neste navegador.
+      Exportacoes em SVG e PNG saem sempre no tema claro, para impressao e slides.</p>
+
+      <h4>Atalhos</h4>
+      <ul class="legenda">
+        <li><b>Delete</b>: excluir selecao. <b>Esc</b>: voltar ao modo selecionar.</li>
+        <li><b>Ctrl+Z / Ctrl+Y</b>: desfazer e refazer. <b>Duplo clique</b>: renomear.</li>
+        <li><b>Roda do mouse</b>: zoom. <b>Arrastar no fundo</b>: mover o diagrama.</li>
+      </ul>
+    </section>
+  </aside>
+</div>
+
+<footer class="rodape">
+  <span id="status"></span>
+  <span class="rodape-dir">Servidor local &middot; pasta /diagramas</span>
+</footer>
+
+<div id="modal-decisao" class="modal oculto">
+  <div class="modal-caixa">
+    <h3 id="modal-titulo">Decisao</h3>
+    <div id="modal-corpo"></div>
+  </div>
+</div>
+
+<script src="js/util.js"></script>
+<script src="js/bpmn-spec.js"></script>
+<script src="js/parser.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/renderer.js"></script>
+<script src="js/validator.js"></script>
+<script src="js/serializer.js"></script>
+<script src="js/simulator.js"></script>
+<script src="js/editor.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

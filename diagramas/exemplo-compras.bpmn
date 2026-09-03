@@ -1,0 +1,413 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:sim="http://simulador-bpmn/schema/1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="Definitions_Compras" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Simulador BPMN" exporterVersion="1.0.0">
+  <bpmn:collaboration id="Collaboration_Compras">
+    <bpmn:participant id="Participant_Empresa" name="Empresa" processRef="Process_Compras" />
+    <bpmn:participant id="Participant_Fornecedor" name="Fornecedor" />
+    <bpmn:messageFlow id="mf1" name="Pedido de cotacao" sourceRef="Tarefa_Cotar" targetRef="Participant_Fornecedor" />
+    <bpmn:messageFlow id="mf2" name="Pedido de compra" sourceRef="Tarefa_Emitir" targetRef="Participant_Fornecedor" />
+    <bpmn:messageFlow id="mf3" name="Confirmacao de entrega" sourceRef="Participant_Fornecedor" targetRef="Espera_Entrega" />
+  </bpmn:collaboration>
+  <bpmn:process id="Process_Compras" name="Solicitar compra de material (exemplo didatico)" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_Process_Compras">
+      <bpmn:lane id="Lane_Requisitante" name="Requisitante">
+        <bpmn:flowNodeRef>Inicio_Necessidade</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Tarefa_Preencher</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Tarefa_Receber</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Fim_Atendida</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Compras" name="Compras">
+        <bpmn:flowNodeRef>GW_Valor</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>GW_Merge</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Tarefa_Cotar</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>GW_Par</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Tarefa_Emitir</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>GW_ParJoin</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Espera_Entrega</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Borda_Prazo</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Tarefa_Escalar</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Financeiro" name="Financeiro">
+        <bpmn:flowNodeRef>Tarefa_Aprovar</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Tarefa_Reservar</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Fim_Recusada</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>GW_Aprovada</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="Inicio_Necessidade" name="Necessidade de material identificada">
+      <bpmn:outgoing>sf1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="Tarefa_Preencher" name="Preencher requisicao de compra">
+      <bpmn:extensionElements>
+        <sim:parametros duracaoMin="300" duracaoMax="900" custo="15" recurso="Requisitante" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>sf1</bpmn:incoming>
+      <bpmn:outgoing>sf2</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="GW_Valor" name="Valor acima de R$ 5.000?" default="sf4">
+      <bpmn:incoming>sf2</bpmn:incoming>
+      <bpmn:outgoing>sf3</bpmn:outgoing>
+      <bpmn:outgoing>sf4</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="Tarefa_Aprovar" name="Aprovar requisicao">
+      <bpmn:extensionElements>
+        <sim:parametros duracaoMin="600" duracaoMax="3600" custo="40" recurso="Gerente" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>sf3</bpmn:incoming>
+      <bpmn:outgoing>sf5a</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="GW_Merge">
+      <bpmn:incoming>sf4</bpmn:incoming>
+      <bpmn:incoming>sf5</bpmn:incoming>
+      <bpmn:outgoing>sf7</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:manualTask id="Tarefa_Cotar" name="Cotar com fornecedores">
+      <bpmn:extensionElements>
+        <sim:parametros duracaoMin="1800" duracaoMax="7200" custo="60" recurso="Comprador" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>sf7</bpmn:incoming>
+      <bpmn:incoming>sf17</bpmn:incoming>
+      <bpmn:outgoing>sf8</bpmn:outgoing>
+    </bpmn:manualTask>
+    <bpmn:parallelGateway id="GW_Par">
+      <bpmn:incoming>sf8</bpmn:incoming>
+      <bpmn:outgoing>sf9</bpmn:outgoing>
+      <bpmn:outgoing>sf10</bpmn:outgoing>
+    </bpmn:parallelGateway>
+    <bpmn:serviceTask id="Tarefa_Emitir" name="Emitir pedido de compra">
+      <bpmn:extensionElements>
+        <sim:parametros duracaoMin="120" duracaoMax="300" custo="10" recurso="ERP" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>sf9</bpmn:incoming>
+      <bpmn:outgoing>sf11</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Tarefa_Reservar" name="Reservar verba no orcamento">
+      <bpmn:extensionElements>
+        <sim:parametros duracaoMin="60" duracaoMax="180" custo="5" recurso="ERP" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>sf10</bpmn:incoming>
+      <bpmn:outgoing>sf12</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:parallelGateway id="GW_ParJoin">
+      <bpmn:incoming>sf11</bpmn:incoming>
+      <bpmn:incoming>sf12</bpmn:incoming>
+      <bpmn:outgoing>sf13</bpmn:outgoing>
+    </bpmn:parallelGateway>
+    <bpmn:intermediateCatchEvent id="Espera_Entrega" name="Aguardar confirmacao do fornecedor">
+      <bpmn:extensionElements>
+        <sim:parametros duracaoMin="3600" duracaoMax="10800" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>sf13</bpmn:incoming>
+      <bpmn:outgoing>sf14</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="message_Espera_Entrega" />
+    </bpmn:intermediateCatchEvent>
+    <bpmn:boundaryEvent id="Borda_Prazo" name="Prazo de 5 dias excedido" attachedToRef="Tarefa_Cotar">
+      <bpmn:extensionElements>
+        <sim:parametros duracaoMin="9000" duracaoMax="9000" />
+      </bpmn:extensionElements>
+      <bpmn:outgoing>sf16</bpmn:outgoing>
+      <bpmn:timerEventDefinition id="timer_Borda_Prazo" />
+    </bpmn:boundaryEvent>
+    <bpmn:userTask id="Tarefa_Escalar" name="Escalar atraso para a gerencia">
+      <bpmn:extensionElements>
+        <sim:parametros duracaoMin="300" duracaoMax="600" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>sf16</bpmn:incoming>
+      <bpmn:outgoing>sf17</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:manualTask id="Tarefa_Receber" name="Receber e conferir material">
+      <bpmn:extensionElements>
+        <sim:parametros duracaoMin="600" duracaoMax="1200" custo="20" recurso="Almoxarifado" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>sf14</bpmn:incoming>
+      <bpmn:outgoing>sf15</bpmn:outgoing>
+    </bpmn:manualTask>
+    <bpmn:endEvent id="Fim_Atendida" name="Requisicao atendida">
+      <bpmn:incoming>sf15</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:endEvent id="Fim_Recusada" name="Requisicao recusada">
+      <bpmn:incoming>sf6</bpmn:incoming>
+      <bpmn:terminateEventDefinition id="terminate_Fim_Recusada" />
+    </bpmn:endEvent>
+    <bpmn:exclusiveGateway id="GW_Aprovada" name="Requisicao aprovada?" default="sf6">
+      <bpmn:incoming>sf5a</bpmn:incoming>
+      <bpmn:outgoing>sf5</bpmn:outgoing>
+      <bpmn:outgoing>sf6</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:dataObjectReference id="Dados_Requisicao" name="Requisicao de compra" />
+    <bpmn:sequenceFlow id="sf1" sourceRef="Inicio_Necessidade" targetRef="Tarefa_Preencher" />
+    <bpmn:sequenceFlow id="sf2" sourceRef="Tarefa_Preencher" targetRef="GW_Valor" />
+    <bpmn:sequenceFlow id="sf3" name="Sim (&gt;= R$ 5.000)" sourceRef="GW_Valor" targetRef="Tarefa_Aprovar">
+      <bpmn:extensionElements>
+        <sim:parametros probabilidade="35" />
+      </bpmn:extensionElements>
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">valor &gt;= 5000</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="sf4" name="Nao" sourceRef="GW_Valor" targetRef="GW_Merge">
+      <bpmn:extensionElements>
+        <sim:parametros probabilidade="65" />
+      </bpmn:extensionElements>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="sf5" name="Aprovada" sourceRef="GW_Aprovada" targetRef="GW_Merge">
+      <bpmn:extensionElements>
+        <sim:parametros probabilidade="80" />
+      </bpmn:extensionElements>
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">aprovada == true</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="sf6" name="Recusada" sourceRef="GW_Aprovada" targetRef="Fim_Recusada">
+      <bpmn:extensionElements>
+        <sim:parametros probabilidade="20" />
+      </bpmn:extensionElements>
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">aprovada == false</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="sf7" sourceRef="GW_Merge" targetRef="Tarefa_Cotar" />
+    <bpmn:sequenceFlow id="sf8" sourceRef="Tarefa_Cotar" targetRef="GW_Par" />
+    <bpmn:sequenceFlow id="sf9" sourceRef="GW_Par" targetRef="Tarefa_Emitir" />
+    <bpmn:sequenceFlow id="sf10" sourceRef="GW_Par" targetRef="Tarefa_Reservar" />
+    <bpmn:sequenceFlow id="sf11" sourceRef="Tarefa_Emitir" targetRef="GW_ParJoin" />
+    <bpmn:sequenceFlow id="sf12" sourceRef="Tarefa_Reservar" targetRef="GW_ParJoin" />
+    <bpmn:sequenceFlow id="sf13" sourceRef="GW_ParJoin" targetRef="Espera_Entrega" />
+    <bpmn:sequenceFlow id="sf14" sourceRef="Espera_Entrega" targetRef="Tarefa_Receber" />
+    <bpmn:sequenceFlow id="sf15" sourceRef="Tarefa_Receber" targetRef="Fim_Atendida" />
+    <bpmn:sequenceFlow id="sf16" sourceRef="Borda_Prazo" targetRef="Tarefa_Escalar" />
+    <bpmn:sequenceFlow id="sf17" sourceRef="Tarefa_Escalar" targetRef="Tarefa_Cotar" />
+    <bpmn:sequenceFlow id="sf5a" sourceRef="Tarefa_Aprovar" targetRef="GW_Aprovada" />
+    <bpmn:textAnnotation id="Nota_Regra">
+      <bpmn:text>Regra: compras acima de R$ 5.000 exigem aprovacao do Financeiro antes da cotacao.</bpmn:text>
+    </bpmn:textAnnotation>
+    <bpmn:association id="as1" sourceRef="Tarefa_Preencher" targetRef="Dados_Requisicao" />
+    <bpmn:association id="as2" sourceRef="GW_Valor" targetRef="Nota_Regra" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Collaboration_Compras">
+      <bpmndi:BPMNShape id="Shape_Participant_Empresa" bpmnElement="Participant_Empresa" isHorizontal="true">
+        <dc:Bounds x="160" y="31" width="1942" height="559" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Participant_Fornecedor" bpmnElement="Participant_Fornecedor" isHorizontal="true">
+        <dc:Bounds x="160" y="630" width="1942" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Inicio_Necessidade" bpmnElement="Inicio_Necessidade">
+        <dc:Bounds x="262" y="147" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="235" y="187" width="90" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Tarefa_Preencher" bpmnElement="Tarefa_Preencher">
+        <dc:Bounds x="400" y="125" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_GW_Valor" bpmnElement="GW_Valor">
+        <dc:Bounds x="580" y="310" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="560" y="364" width="90" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Tarefa_Aprovar" bpmnElement="Tarefa_Aprovar">
+        <dc:Bounds x="690" y="465" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_GW_Merge" bpmnElement="GW_Merge">
+        <dc:Bounds x="980" y="310" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Tarefa_Cotar" bpmnElement="Tarefa_Cotar">
+        <dc:Bounds x="1090" y="295" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_GW_Par" bpmnElement="GW_Par">
+        <dc:Bounds x="1270" y="310" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Tarefa_Emitir" bpmnElement="Tarefa_Emitir">
+        <dc:Bounds x="1380" y="295" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Tarefa_Reservar" bpmnElement="Tarefa_Reservar">
+        <dc:Bounds x="1380" y="465" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_GW_ParJoin" bpmnElement="GW_ParJoin">
+        <dc:Bounds x="1560" y="310" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Espera_Entrega" bpmnElement="Espera_Entrega">
+        <dc:Bounds x="1670" y="317" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1643" y="357" width="90" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Borda_Prazo" bpmnElement="Borda_Prazo">
+        <dc:Bounds x="1004" y="357" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="977" y="397" width="90" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Tarefa_Escalar" bpmnElement="Tarefa_Escalar">
+        <dc:Bounds x="220" y="295" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Tarefa_Receber" bpmnElement="Tarefa_Receber">
+        <dc:Bounds x="1766" y="125" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Fim_Atendida" bpmnElement="Fim_Atendida">
+        <dc:Bounds x="1946" y="147" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1919" y="187" width="90" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Fim_Recusada" bpmnElement="Fim_Recusada">
+        <dc:Bounds x="987" y="487" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="960" y="527" width="90" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_GW_Aprovada" bpmnElement="GW_Aprovada">
+        <dc:Bounds x="870" y="480" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="850" y="534" width="90" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Dados_Requisicao" bpmnElement="Dados_Requisicao">
+        <dc:Bounds x="442" y="51" width="36" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="173" y="804" width="90" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Nota_Regra" bpmnElement="Nota_Regra">
+        <dc:Bounds x="515" y="226" width="180" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_Requisitante" bpmnElement="Lane_Requisitante" isHorizontal="true">
+        <dc:Bounds x="190" y="31" width="1912" height="219" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_Compras" bpmnElement="Lane_Compras" isHorizontal="true">
+        <dc:Bounds x="190" y="250" width="1912" height="170" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_Financeiro" bpmnElement="Lane_Financeiro" isHorizontal="true">
+        <dc:Bounds x="190" y="420" width="1912" height="170" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_mf1" bpmnElement="mf1">
+        <di:waypoint x="1150" y="375" />
+        <di:waypoint x="1150" y="503" />
+        <di:waypoint x="1131" y="503" />
+        <di:waypoint x="1131" y="630" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1096" y="481" width="90" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_mf2" bpmnElement="mf2">
+        <di:waypoint x="1440" y="375" />
+        <di:waypoint x="1440" y="503" />
+        <di:waypoint x="1131" y="503" />
+        <di:waypoint x="1131" y="630" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1241" y="481" width="90" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_mf3" bpmnElement="mf3">
+        <di:waypoint x="2102" y="670" />
+        <di:waypoint x="1886" y="670" />
+        <di:waypoint x="1886" y="335" />
+        <di:waypoint x="1706" y="335" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1841" y="499" width="90" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_sf1" bpmnElement="sf1">
+        <di:waypoint x="298" y="165" />
+        <di:waypoint x="400" y="165" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_sf2" bpmnElement="sf2">
+        <di:waypoint x="460" y="205" />
+        <di:waypoint x="460" y="258" />
+        <di:waypoint x="605" y="258" />
+        <di:waypoint x="605" y="310" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_sf3" bpmnElement="sf3">
+        <di:waypoint x="605" y="360" />
+        <di:waypoint x="605" y="413" />
+        <di:waypoint x="750" y="413" />
+        <di:waypoint x="750" y="465" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="633" y="391" width="90" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_sf4" bpmnElement="sf4">
+        <di:waypoint x="630" y="335" />
+        <di:waypoint x="980" y="335" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="760" y="313" width="90" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_sf5" bpmnElement="sf5">
+        <di:waypoint x="895" y="480" />
+        <di:waypoint x="895" y="420" />
+        <di:waypoint x="1005" y="420" />
+        <di:waypoint x="1005" y="360" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="905" y="398" width="90" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_sf6" bpmnElement="sf6">
+        <di:waypoint x="920" y="505" />
+        <di:waypoint x="987" y="505" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="909" y="483" width="90" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_sf7" bpmnElement="sf7">
+        <di:waypoint x="1030" y="335" />
+        <di:waypoint x="1090" y="335" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_sf8" bpmnElement="sf8">
+        <di:waypoint x="1210" y="335" />
+        <di:waypoint x="1270" y="335" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_sf9" bpmnElement="sf9">
+        <di:waypoint x="1320" y="335" />
+        <di:waypoint x="1380" y="335" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_sf10" bpmnElement="sf10">
+        <di:waypoint x="1295" y="360" />
+        <di:waypoint x="1295" y="413" />
+        <di:waypoint x="1440" y="413" />
+        <di:waypoint x="1440" y="465" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_sf11" bpmnElement="sf11">
+        <di:waypoint x="1500" y="335" />
+        <di:waypoint x="1560" y="335" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_sf12" bpmnElement="sf12">
+        <di:waypoint x="1440" y="465" />
+        <di:waypoint x="1440" y="413" />
+        <di:waypoint x="1585" y="413" />
+        <di:waypoint x="1585" y="360" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_sf13" bpmnElement="sf13">
+        <di:waypoint x="1610" y="335" />
+        <di:waypoint x="1670" y="335" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_sf14" bpmnElement="sf14">
+        <di:waypoint x="1688" y="317" />
+        <di:waypoint x="1688" y="261" />
+        <di:waypoint x="1826" y="261" />
+        <di:waypoint x="1826" y="205" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_sf15" bpmnElement="sf15">
+        <di:waypoint x="1886" y="165" />
+        <di:waypoint x="1946" y="165" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_sf16" bpmnElement="sf16">
+        <di:waypoint x="1004" y="375" />
+        <di:waypoint x="672" y="375" />
+        <di:waypoint x="672" y="335" />
+        <di:waypoint x="340" y="335" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_sf17" bpmnElement="sf17">
+        <di:waypoint x="340" y="335" />
+        <di:waypoint x="1090" y="335" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_sf5a" bpmnElement="sf5a">
+        <di:waypoint x="810" y="505" />
+        <di:waypoint x="870" y="505" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_as1" bpmnElement="as1">
+        <di:waypoint x="460" y="125" />
+        <di:waypoint x="460" y="101" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_as2" bpmnElement="as2">
+        <di:waypoint x="605" y="310" />
+        <di:waypoint x="605" y="286" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
