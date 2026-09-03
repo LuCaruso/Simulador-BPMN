@@ -356,7 +356,15 @@
       u.el('path', { d: 'M ' + (x + 1) + ' ' + (y + 15) + ' q 6 -7 12 0', class: cls + ' traco' }, g);
       u.el('rect', { x: x, y: y, width: 15, height: 15, class: cls + ' contorno' }, g);
     } else if (m === 'manual') {
-      u.el('path', { d: 'M ' + x + ' ' + (y + 9) + ' q 2 -6 6 -4 l 5 1 q 3 1 2 4 l -1 4 q -1 2 -4 2 h -5 q -3 0 -3 -3 z', class: cls }, g);
+      // mao aberta: palma + tres dedos + polegar (BPMN 10.3.3)
+      u.el('rect', { x: x + 2, y: y + 7, width: 11, height: 7.5, rx: 2.4, class: cls + ' contorno' }, g);
+      u.el('path', {
+        d: 'M ' + (x + 4.6) + ' ' + (y + 7) + ' v -3.4' +
+           ' M ' + (x + 7.5) + ' ' + (y + 7) + ' v -4.4' +
+           ' M ' + (x + 10.4) + ' ' + (y + 7) + ' v -3.4',
+        class: cls + ' traco'
+      }, g);
+      u.el('path', { d: 'M ' + (x + 2) + ' ' + (y + 9.4) + ' h -1.4 q -1.1 0 -1.1 1.1 t 1.1 1.1 h 1.4', class: cls + ' traco' }, g);
     } else if (m === 'service') {
       u.el('circle', { cx: x + 7, cy: y + 7, r: 6, class: cls + ' contorno' }, g);
       u.el('circle', { cx: x + 7, cy: y + 7, r: 2.4, class: cls + ' contorno' }, g);
