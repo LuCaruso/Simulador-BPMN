@@ -52,12 +52,18 @@
   </div>
 
   <div class="grupo-topo">
-    <button id="btn-exportar-bpmn" class="btn" title="Baixar o arquivo .bpmn">.bpmn</button>
-    <button id="btn-exportar-svg" class="btn" title="Exportar imagem vetorial">SVG</button>
-    <button id="btn-exportar-png" class="btn" title="Exportar imagem PNG">PNG</button>
+    <div class="menu-suspenso">
+      <button id="btn-exportar" class="btn" title="Baixar o diagrama">Exportar &#9662;</button>
+      <div id="menu-exportar" class="menu-flutuante oculto">
+        <button id="btn-exportar-bpmn" class="menu-item"><span>Arquivo .bpmn</span><kbd>padrao BPMN</kbd></button>
+        <button id="btn-exportar-svg" class="menu-item"><span>Imagem SVG</span><kbd>vetorial</kbd></button>
+        <button id="btn-exportar-png" class="menu-item"><span>Imagem PNG</span><kbd>slides</kbd></button>
+      </div>
+    </div>
   </div>
 
   <div class="grupo-topo direita">
+    <button id="btn-ajuda" class="btn icone" title="Como usar o simulador">?</button>
     <div class="tema-controle" id="tema-controle" role="group" aria-label="Tema da interface">
       <button data-tema-opcao="light" title="Tema claro" aria-label="Tema claro">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M4.2 4.2l1.6 1.6M18.2 18.2l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.2 19.8l1.6-1.6M18.2 5.8l1.6-1.6"/></svg>
@@ -77,26 +83,30 @@
   <!-- ------------------------------------------------ paleta -->
   <aside class="lateral-esq">
     <div class="barra-ferramentas">
-      <button id="btn-selecionar" class="btn-modo ativo" title="Selecionar / mover (Esc)">&#10530; Selecionar</button>
-      <button id="btn-conectar" class="btn-modo" title="Criar fluxo de sequencia">&#8594; Sequencia</button>
-      <button id="btn-conectar-msg" class="btn-modo" title="Criar fluxo de mensagem entre piscinas">&#8594; Mensagem</button>
-    </div>
-    <div class="barra-ferramentas">
-      <button id="btn-borda-timer" class="btn pequeno" title="Anexar evento de borda de temporizador a atividade selecionada">+ Borda tempo</button>
-      <button id="btn-borda-erro" class="btn pequeno" title="Anexar evento de borda de erro a atividade selecionada">+ Borda erro</button>
-      <button id="btn-excluir" class="btn pequeno perigo" title="Excluir selecao (Delete)">Excluir</button>
+      <button id="btn-selecionar" class="btn-modo ativo" title="Selecionar e mover elementos (Esc)">Selecionar</button>
+      <button id="btn-conectar" class="btn-modo" title="Ligar dois elementos com fluxo de sequencia">Ligar</button>
+      <button id="btn-conectar-msg" class="btn-modo" title="Ligar piscinas diferentes com fluxo de mensagem">Mensagem</button>
     </div>
     <div class="barra-ferramentas">
       <button id="btn-desfazer" class="btn pequeno" title="Desfazer (Ctrl+Z)" disabled>Desfazer</button>
       <button id="btn-refazer" class="btn pequeno" title="Refazer (Ctrl+Y)" disabled>Refazer</button>
-      <button id="btn-reorganizar" class="btn pequeno" title="Reorganizar automaticamente">Auto-layout</button>
+      <button id="btn-reorganizar" class="btn pequeno" title="Reorganizar o diagrama da esquerda para a direita, respeitando as raias">Organizar</button>
+    </div>
+    <div class="barra-ferramentas">
+      <button id="btn-excluir" class="btn pequeno perigo largo" title="Excluir a selecao (Delete)" disabled>Excluir selecao</button>
     </div>
     <label class="check-linha">
       <input type="checkbox" id="chk-fixar-paleta" />
       <span>Manter ferramenta ativa apos inserir</span>
     </label>
 
+    <div class="paleta-busca-caixa">
+      <input type="text" id="paleta-busca" placeholder="Buscar elemento..." autocomplete="off" />
+      <button id="paleta-limpar" class="btn icone" title="Limpar busca">&times;</button>
+    </div>
+
     <div id="paleta" class="paleta"></div>
+    <p id="paleta-vazia" class="vazio oculto">Nenhum elemento encontrado.</p>
   </aside>
 
   <!-- ------------------------------------------------ canvas -->
@@ -281,9 +291,46 @@
 </div>
 
 <footer class="rodape">
-  <span id="status"></span>
-  <span class="rodape-dir">Servidor local &middot; pasta /diagramas</span>
+  <span id="dica-modo" class="dica-modo"></span>
+  <span id="status" class="rodape-dir"></span>
 </footer>
+
+<div id="menu-contexto" class="menu-flutuante menu-contexto oculto"></div>
+
+<div id="boas-vindas" class="modal oculto">
+  <div class="modal-caixa bv">
+    <h3>Bem-vindo ao Simulador BPMN</h3>
+    <p class="modal-sub">Tres coisas e voce ja esta modelando e simulando.</p>
+
+    <ol class="passos">
+      <li>
+        <b>Criar</b>
+        <span>Arraste um elemento da paleta da esquerda para o quadro. Ou clique nele e depois clique no quadro. Duplo clique no espaco vazio insere uma tarefa na hora.</span>
+      </li>
+      <li>
+        <b>Ligar</b>
+        <span>Clique num elemento: aparecem botoes ao lado dele. Arraste o botao <b>&rarr;</b> ate o proximo elemento. Ligacoes proibidas pela notacao sao recusadas com a explicacao.</span>
+      </li>
+      <li>
+        <b>Simular</b>
+        <span>Aperte <b>Iniciar</b> no topo do quadro e veja os tokens percorrerem o processo. As abas da direita mostram validacao e indicadores.</span>
+      </li>
+    </ol>
+
+    <p class="campo-ajuda bv-extra">
+      Botao direito abre o menu de acoes. <kbd>Delete</kbd> exclui, <kbd>Ctrl</kbd>+<kbd>Z</kbd> desfaz,
+      <kbd>F2</kbd> renomeia, <kbd>Ctrl</kbd>+<kbd>S</kbd> salva. A aba <b>Legenda</b> explica cada simbolo do BPMN.
+    </p>
+
+    <div class="bv-rodape">
+      <label class="check-linha"><input type="checkbox" id="bv-nao-mostrar" /><span>Nao mostrar novamente</span></label>
+      <div class="bv-botoes">
+        <button id="bv-exemplo" class="btn">Abrir um exemplo</button>
+        <button id="bv-fechar" class="btn primario">Comecar</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div id="modal-decisao" class="modal oculto">
   <div class="modal-caixa">

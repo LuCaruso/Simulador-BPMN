@@ -68,19 +68,55 @@ a **probabilidade** de cada caminho é definida no fluxo de sequência que sai d
 
 ### 3. Criar diagramas na própria ferramenta
 
-* **Novo** (processo simples) ou **Novo com raias** (piscina + raias).
-* Clique num item da **paleta** e depois no diagrama para inserir o elemento.
-  Marque *Manter ferramenta ativa* para inserir vários seguidos.
-* **Sequência** / **Mensagem**: clique na origem e depois no destino.
-  Conexões proibidas pela notação são **recusadas com a explicação e a cláusula** da
-  especificação (ex.: fluxo de sequência não cruza piscina — cláusula 7.6.1).
-* Arraste para mover (piscinas e raias levam o conteúdo junto), use as alças para
-  redimensionar, `Delete` para excluir, `Ctrl+Z` / `Ctrl+Y` para desfazer e refazer,
-  duplo clique para renomear.
-* **+ Borda tempo** / **+ Borda erro** anexam eventos de borda à atividade selecionada.
-* **Auto-layout** reorganiza o diagrama da esquerda para a direita, respeitando as raias.
+**Inserir um elemento** — três caminhos, use o que for mais natural:
+
+* **Arraste** o item da paleta direto para o quadro;
+* ou **clique** no item da paleta e depois clique no quadro;
+* ou **duplo clique** no espaço vazio, que insere uma tarefa ali mesmo.
+
+Use a **busca da paleta** para achar um elemento pelo nome em vez de garimpar na lista.
+
+**Ligar dois elementos** — clique num elemento e aparece um **pad de ações** ao lado dele:
+
+| Botão | O que faz |
+|---|---|
+| **→** | Fluxo de sequência: **arraste** até o destino, ou solte e clique no destino |
+| **✉** | Fluxo de mensagem (só entre piscinas diferentes) |
+| **⏱** | Anexa evento de borda de temporizador |
+| **✎** | Renomear / abrir propriedades |
+| **⧉** | Duplicar |
+| **🗑** | Excluir |
+
+Enquanto você arrasta, o alvo fica **verde** se a ligação é válida e **vermelho tracejado**
+se não é. Conexões proibidas pela notação são recusadas com a explicação e a cláusula da
+especificação (ex.: fluxo de sequência não cruza piscina — cláusula 7.6.1).
+
+**Botão direito** abre o menu de ações do elemento (ou, no espaço vazio, insere elementos,
+organiza e ajusta o zoom).
+
+**Outras ações**
+
+* Arraste para mover (piscinas e raias levam o conteúdo junto); alças nos cantos redimensionam.
+* Selecionar um elemento abre a aba **Propriedades** sozinha.
+* **Organizar** reorganiza o diagrama da esquerda para a direita, respeitando as raias.
 * **Salvar** grava em `diagramas\` (a versão anterior vai para `diagramas\_backup\`).
-  **.bpmn / SVG / PNG** baixam o arquivo pelo navegador.
+  **Exportar** baixa `.bpmn`, SVG ou PNG.
+
+**Atalhos**
+
+| Tecla | Ação |
+|---|---|
+| `Delete` | Excluir seleção |
+| `Ctrl`+`Z` / `Ctrl`+`Y` | Desfazer / refazer |
+| `Ctrl`+`S` | Salvar |
+| `Ctrl`+`D` | Duplicar |
+| `F2` ou duplo clique | Renomear |
+| Setas (`Shift` = passo maior) | Mover a seleção |
+| `Esc` | Cancelar ligação / voltar ao modo selecionar |
+| Roda do mouse | Zoom |
+
+A barra inferior mostra sempre **o que fazer agora** no modo atual, e o botão **?** no topo
+reabre o guia de boas-vindas.
 
 ### 4. Validação da notação
 
@@ -177,7 +213,8 @@ Simulador BPMN/
 ├─ package.json               sem dependências externas
 ├─ diagramas/                 seus arquivos .bpmn (e _backup/ das versões anteriores)
 │  ├─ pizzaria-delivery-as-is.bpmn
-│  └─ exemplo-compras.bpmn    exemplo didático gerado pela própria ferramenta
+│  ├─ exemplo-compras.bpmn    exemplo didático gerado pela própria ferramenta
+│  └─ cafeteria-balcao-as-is.bpmn   AS-IS de atendimento em balcão de cafeteria
 └─ public/
    ├─ index.html
    ├─ fonts/                  Inter (SIL OFL), embutida para uso offline

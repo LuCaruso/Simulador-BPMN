@@ -649,3 +649,205 @@ input[type="checkbox"] { accent-color: var(--marca); }
 [data-tema="dark"] .token-sombra { fill: rgba(0, 0, 0, .55); }
 .token-contador { font-size: 9px; fill: var(--dg-texto); text-anchor: end; }
 .barra-progresso { fill: var(--dg-ativo); opacity: .9; }
+
+/* =====================================================================
+ * Camada de usabilidade: pad de acoes, menus, busca, onboarding
+ * ===================================================================== */
+
+.oculto { display: none !important; }
+
+/* ---------------------------------------------- pad de acoes rapidas */
+
+.pad-botao { cursor: pointer; }
+.pad-fundo {
+  fill: var(--fundo-2);
+  stroke: var(--borda-forte);
+  stroke-width: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .18));
+}
+.pad-icone {
+  fill: none;
+  stroke: var(--texto);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.pad-botao:hover .pad-fundo { fill: var(--marca); stroke: var(--marca); }
+.pad-botao:hover .pad-icone { stroke: var(--marca-contraste); }
+.pad-botao.perigo:hover .pad-fundo { fill: var(--perigo); stroke: var(--perigo); }
+.pad-botao.perigo:hover .pad-icone { stroke: #fff; }
+
+/* ------------------------------------------- realce de alvo / hover */
+
+.bpmn-no.sob-o-mouse .forma-atividade,
+.bpmn-no.sob-o-mouse .forma-gateway,
+.bpmn-no.sob-o-mouse .forma-evento,
+.bpmn-no.sob-o-mouse .forma-dado { stroke-width: 2.6; }
+.bpmn-fluxo.sob-o-mouse .linha-fluxo { stroke-width: 2.6; }
+
+.bpmn-no.alvo-valido .forma-atividade,
+.bpmn-no.alvo-valido .forma-gateway,
+.bpmn-no.alvo-valido .forma-evento {
+  stroke: var(--ok) !important;
+  stroke-width: 3.2 !important;
+}
+.bpmn-no.alvo-invalido .forma-atividade,
+.bpmn-no.alvo-invalido .forma-gateway,
+.bpmn-no.alvo-invalido .forma-evento {
+  stroke: var(--perigo) !important;
+  stroke-width: 3.2 !important;
+  stroke-dasharray: 4 3;
+}
+
+.ponta-conexao-previa { fill: var(--dg-selecao); stroke: var(--dg-fundo); stroke-width: 1.5; }
+.ponta-conexao-previa.invalida, .linha-conexao-previa.invalida { stroke: var(--perigo); }
+.ponta-conexao-previa.invalida { fill: var(--perigo); }
+
+#canvas.recebendo { outline: 3px dashed var(--marca); outline-offset: -6px; }
+
+/* ---------------------------------------------------- menus flutuantes */
+
+.menu-suspenso { position: relative; }
+.menu-flutuante {
+  position: absolute;
+  z-index: 60;
+  min-width: 210px;
+  background: var(--fundo-2);
+  border: 1px solid var(--borda);
+  border-radius: var(--radius);
+  box-shadow: var(--sombra-alta);
+  padding: 4px;
+}
+#menu-exportar { top: calc(100% + 5px); left: 0; }
+.menu-contexto { position: fixed; }
+.menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--texto);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  padding: 6px 9px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.menu-item:hover { background: var(--marca-suave); color: var(--marca); }
+.menu-item.perigo:hover { background: var(--perigo-suave); color: var(--perigo); }
+.menu-item kbd {
+  font: inherit; font-size: 9.5px; color: var(--texto-tenue);
+  background: var(--fundo-3); border: 1px solid var(--borda);
+  border-radius: 3px; padding: 1px 5px; white-space: nowrap;
+}
+.menu-separador { height: 1px; background: var(--borda); margin: 4px 2px; }
+
+/* ------------------------------------------------------ busca paleta */
+
+.paleta-busca-caixa { position: relative; display: flex; align-items: center; }
+#paleta-busca { padding-right: 26px; }
+#paleta-limpar {
+  position: absolute; right: 2px; border: 0; background: transparent;
+  color: var(--texto-tenue); padding: 2px 6px; font-size: 15px; line-height: 1;
+}
+#paleta-limpar:hover { color: var(--marca); background: transparent; }
+
+.paleta-secao.oculto, .paleta-item.oculto { display: none; }
+.paleta-grupo {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+}
+.paleta-seta { transition: transform .15s ease; display: inline-block; color: var(--marca); }
+.paleta-secao.recolhida .paleta-seta { transform: rotate(-90deg); }
+.paleta-secao.recolhida .paleta-grade { display: none; }
+.paleta-item { min-height: 58px; }
+.paleta-item.arrastando { opacity: .45; }
+.paleta-item:active { cursor: grabbing; }
+
+/* ------------------------------------------------- dica de modo (rodape) */
+
+.dica-modo { color: var(--texto-fraco); font-size: 11px; }
+.dica-modo.ligando { color: var(--marca); font-weight: 600; }
+.dica-modo.simulando { color: var(--ok); font-weight: 600; }
+
+/* --------------------------------------------------- estado vazio */
+
+.estado-vazio {
+  border: 1px dashed var(--borda-forte);
+  border-radius: var(--radius);
+  padding: 14px;
+  text-align: center;
+  color: var(--texto-fraco);
+  margin-bottom: 12px;
+}
+.estado-vazio strong { display: block; color: var(--texto); margin-bottom: 6px; font-size: 12.5px; }
+.estado-vazio p { margin: 4px 0; font-size: 11.5px; line-height: 1.5; }
+
+/* ------------------------------------------------------- boas-vindas */
+
+.modal-caixa.bv { max-width: 560px; }
+.passos { list-style: none; counter-reset: passo; padding: 0; margin: 0 0 14px; }
+.passos li {
+  counter-increment: passo;
+  display: grid;
+  grid-template-columns: 26px 76px 1fr;
+  gap: 10px;
+  align-items: start;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--borda);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.passos li::before {
+  content: counter(passo);
+  background: var(--marca);
+  color: var(--marca-contraste);
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 11px;
+}
+.passos li b { color: var(--texto); }
+.passos li span { color: var(--texto-fraco); }
+.bv-extra { margin: 0 0 14px; line-height: 1.7; }
+.bv-extra kbd {
+  font: inherit; font-size: 10px; background: var(--fundo-3);
+  border: 1px solid var(--borda); border-radius: 3px; padding: 1px 5px;
+}
+.bv-rodape { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.bv-botoes { display: flex; gap: 6px; }
+
+/* A camada de sobreposicao (tokens, linha-guia, contorno de selecao) nao
+   deve interceptar o ponteiro: senao ela "rouba" o alvo do arraste de
+   ligacao. Apenas os controles clicaveis voltam a receber eventos. */
+.camada-overlay { pointer-events: none; }
+.camada-overlay .pad-botao,
+.camada-overlay .alca { pointer-events: all; }
+
+/* Ajustes finos de encaixe -------------------------------------------- */
+
+.btn-modo { font-size: 10.5px; padding: 6px 4px; letter-spacing: -.1px; }
+.btn.largo { width: 100%; }
+
+/* rodape em uma linha so: a dica encolhe antes do status */
+.rodape { gap: 16px; flex-wrap: nowrap; }
+.dica-modo {
+  flex: 1 1 auto; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rodape .rodape-dir { flex: 0 0 auto; white-space: nowrap; }
+
+/* o topo nao pode empurrar o seletor de tema para fora em telas menores */
+@media (max-width: 1180px) {
+  .topo { gap: 10px; }
+  .topo h1 { font-size: 13.5px; }
+  .marca { min-width: 0; }
+  #lista-arquivos { max-width: 190px; }
+}

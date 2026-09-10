@@ -76,15 +76,42 @@
     this.r.aoSelecionar = function (id, ev) { self._mousedownElemento(id, ev); };
 
     svg.addEventListener('mousedown', function (ev) {
-      if (ev.target.closest && ev.target.closest('.bpmn-no, .bpmn-fluxo, .alca, .bpmn-piscina, .bpmn-raia, .bpmn-grupo')) return;
+      if (ev.button === 2) return; // botao direito abre o menu de contexto
+      if (ev.target.closest && ev.target.closest('.bpmn-no, .bpmn-fluxo, .alca, .pad-botao, .bpmn-piscina, .bpmn-raia, .bpmn-grupo')) return;
       if (self.modo.indexOf('criar') === 0) {
         var p = self.r.paraDiagrama(ev.clientX, ev.clientY);
         self.criarNoPonto(p);
         return;
       }
+      if (self.conexao) { // clicou no vazio durante uma ligacao: cancela
+        self.conexao = null;
+        self.definirModo('selecionar');
+        self.app.mostrarDica('Ligacao cancelada.');
+        return;
+      }
       // pan
       self.arrasto = { tipo: 'pan', x0: ev.clientX, y0: ev.clientY, tx: self.r.tx, ty: self.r.ty };
       self.selecionar([]);
+    });
+
+    // menu de contexto (botao direito)
+    svg.addEventListener('contextmenu', function (ev) {
+      ev.preventDefault();
+      if (!self.habilitado) return;
+      var alvo = ev.target.closest && ev.target.closest('[data-id]');
+      var id = alvo ? alvo.getAttribute('data-id') : null;
+      if (id && self.selecao.indexOf(id) === -1) self.selecionar([id]);
+      self.app.abrirMenuContexto(ev.clientX, ev.clientY, id, self.r.paraDiagrama(ev.clientX, ev.clientY));
+    });
+
+    // realce ao passar o mouse (afordancia de "isto e clicavel")
+    svg.addEventListener('mouseover', function (ev) {
+      var alvo = ev.target.closest && ev.target.closest('.bpmn-no, .bpmn-fluxo');
+      if (alvo) alvo.classList.add('sob-o-mouse');
+    });
+    svg.addEventListener('mouseout', function (ev) {
+      var alvo = ev.target.closest && ev.target.closest('.bpmn-no, .bpmn-fluxo');
+      if (alvo) alvo.classList.remove('sob-o-mouse');
     });
 
     window.addEventListener('mousemove', function (ev) { self._mousemove(ev); });
@@ -99,23 +126,49 @@
 
     svg.addEventListener('dblclick', function (ev) {
       var alvo = ev.target.closest && ev.target.closest('[data-id]');
-      if (!alvo) return;
-      var id = alvo.getAttribute('data-id');
-      self.app.focarNomeNasPropriedades(id);
+      if (alvo) {
+        self.app.focarNomeNasPropriedades(alvo.getAttribute('data-id'));
+        return;
+      }
+      // duplo clique no vazio cria uma tarefa ali mesmo
+      if (!self.habilitado) return;
+      var p = self.r.paraDiagrama(ev.clientX, ev.clientY);
+      self.definirModo('criar', 'task');
+      self.criarNoPonto(p);
+      self.definirModo('selecionar');
     });
 
     window.addEventListener('keydown', function (ev) {
       if (/input|textarea|select/i.test((ev.target.tagName || ''))) return;
+      var ctrl = ev.ctrlKey || ev.metaKey;
+      var tecla = (ev.key || '').toLowerCase();
+
       if (ev.key === 'Delete' || ev.key === 'Backspace') {
         if (self.selecao.length) { ev.preventDefault(); self.excluirSelecao(); }
       } else if (ev.key === 'Escape') {
+        self.app.fecharMenuContexto();
+        self.conexao = null;
         self.definirModo('selecionar');
         self.selecionar([]);
-      } else if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'z') {
+      } else if (ctrl && tecla === 'z') {
         ev.preventDefault();
         if (ev.shiftKey) self.refazer(); else self.desfazer();
-      } else if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'y') {
+      } else if (ctrl && tecla === 'y') {
         ev.preventDefault(); self.refazer();
+      } else if (ctrl && tecla === 's') {
+        ev.preventDefault(); self.app.salvar();
+      } else if (ctrl && tecla === 'd') {
+        ev.preventDefault();
+        if (self.selecao.length === 1) self.duplicar(self.selecao[0]);
+      } else if (ev.key === 'F2') {
+        if (self.selecao.length === 1) { ev.preventDefault(); self.app.focarNomeNasPropriedades(self.selecao[0]); }
+      } else if (ev.key.indexOf('Arrow') === 0 && self.selecao.length && self.habilitado) {
+        // setas movem a selecao (Shift = passo maior)
+        ev.preventDefault();
+        var passo = ev.shiftKey ? GRADE : 1;
+        var dx = ev.key === 'ArrowLeft' ? -passo : (ev.key === 'ArrowRight' ? passo : 0);
+        var dy = ev.key === 'ArrowUp' ? -passo : (ev.key === 'ArrowDown' ? passo : 0);
+        self.mover(dx, dy);
       }
     });
   };
@@ -128,14 +181,20 @@
     if (this.modo === 'conectar-sequencia' || this.modo === 'conectar-mensagem') {
       ev.stopPropagation();
       if (!el) return;
+      var tipo = this.modo === 'conectar-mensagem' ? 'messageFlow' : 'sequenceFlow';
       if (!this.conexao) {
-        this.conexao = { origem: id };
-        this.selecionar([id]);
-        this.app.mostrarDica('Selecione o elemento de destino.');
+        this.conexao = { origem: id, tipoFluxo: tipo };
+        this.selecionar([id], 'canvas');
+        this.app.mostrarDica('Agora clique no elemento de destino. (Esc cancela)');
       } else {
-        var tipo = this.modo === 'conectar-mensagem' ? 'messageFlow' : 'sequenceFlow';
-        this.criarFluxo(this.conexao.origem, id, tipo);
+        var erroLig = this.podeConectar(this.conexao.origem, id, this.conexao.tipoFluxo || tipo);
+        if (erroLig) {
+          this.app.mostrarDica(erroLig, 'erro');
+          return; // mantem a origem para o usuario tentar outro destino
+        }
+        this.criarFluxo(this.conexao.origem, id, this.conexao.tipoFluxo || tipo);
         this.conexao = null;
+        this.definirModo('selecionar');
       }
       return;
     }
@@ -147,9 +206,9 @@
     if (ev.shiftKey || ev.ctrlKey) {
       if (jaSelecionado) this.selecao.splice(this.selecao.indexOf(id), 1);
       else this.selecao.push(id);
-      this.selecionar(this.selecao.slice());
+      this.selecionar(this.selecao.slice(), 'canvas');
     } else if (!jaSelecionado) {
-      this.selecionar([id]);
+      this.selecionar([id], 'canvas');
     }
 
     if (el && el.bounds && this.habilitado) {
@@ -221,6 +280,15 @@
     var m = this.modelo();
     var p = this.r.paraDiagrama(ev.clientX, ev.clientY);
 
+    if (a.tipo === 'conectando') {
+      a.moveu = true;
+      var sob = this._elementoEm(ev.clientX, ev.clientY);
+      a.alvoInvalido = !!(sob && sob !== a.origem && this.podeConectar(a.origem, sob, a.tipoFluxo));
+      this._realcarAlvo(sob, a.origem, a.tipoFluxo);
+      this.desenharAuxiliares(p);
+      return;
+    }
+
     if (a.tipo === 'mover') {
       var dx = arredonda(p.x - a.p0.x);
       var dy = arredonda(p.y - a.p0.y);
@@ -259,9 +327,42 @@
     }
   };
 
-  Editor.prototype._mouseup = function () {
+  /** Pinta o elemento sob o ponteiro como alvo valido ou invalido. */
+  Editor.prototype._realcarAlvo = function (alvoId, origemId, tipoFluxo) {
+    u.$$('.alvo-valido, .alvo-invalido', this.r.svg).forEach(function (n) {
+      n.classList.remove('alvo-valido', 'alvo-invalido');
+    });
+    if (!alvoId || alvoId === origemId) return;
+    var g = this.r.mapaNos[alvoId];
+    if (!g) return;
+    g.classList.add(this.podeConectar(origemId, alvoId, tipoFluxo) ? 'alvo-invalido' : 'alvo-valido');
+  };
+
+  Editor.prototype._mouseup = function (ev) {
     var a = this.arrasto;
     this.arrasto = null;
+
+    if (a && a.tipo === 'conectando') {
+      u.$$('.alvo-valido, .alvo-invalido', this.r.svg).forEach(function (n) {
+        n.classList.remove('alvo-valido', 'alvo-invalido');
+      });
+      var alvo = ev ? this._elementoEm(ev.clientX, ev.clientY) : null;
+      if (alvo && alvo !== a.origem) {
+        var erro = this.podeConectar(a.origem, alvo, a.tipoFluxo);
+        if (erro) {
+          this.app.mostrarDica(erro, 'erro');
+        } else {
+          this.criarFluxo(a.origem, alvo, a.tipoFluxo);
+          this.conexao = null;
+          this.definirModo('selecionar');
+          return;
+        }
+      }
+      // soltou no vazio: segue no modo "clique no destino"
+      this.desenharAuxiliares();
+      return;
+    }
+
     if (!a) return;
     if (a.tipo === 'mover' && a.moveu) {
       this.reatribuirContainers(a.itens.map(function (i) { return i.id; }));
@@ -289,11 +390,18 @@
 
   /* ----------------------------------------------------- selecao */
 
-  Editor.prototype.selecionar = function (ids) {
+  /**
+   * @param ids     elementos selecionados
+   * @param origem  'canvas' quando veio de uma acao no diagrama (abre as
+   *                propriedades automaticamente); vazio quando veio de uma
+   *                lista lateral (mantem a aba atual)
+   */
+  Editor.prototype.selecionar = function (ids, origem) {
     this.selecao = ids || [];
     this.r.selecionar(this.selecao);
     this.desenharAuxiliares();
-    this.app.mostrarPropriedades(this.selecao);
+    this.app.mostrarPropriedades(this.selecao, origem);
+    this.app.atualizarAcoesDependentes();
   };
 
   Editor.prototype.desenharAuxiliares = function (pontoMouse) {
@@ -325,18 +433,162 @@
           });
         }
       });
+      if (this.selecao.length === 1) this._desenharPad(g, this.selecao[0]);
     }
 
-    if (this.conexao && pontoMouse) {
-      var o = m.elementos[this.conexao.origem];
+    // linha-guia da conexao em andamento (arrastando da alca ou no modo conectar)
+    var conexaoAtiva = (this.arrasto && this.arrasto.tipo === 'conectando') ? this.arrasto : this.conexao;
+    if (conexaoAtiva && pontoMouse) {
+      var o = m.elementos[conexaoAtiva.origem];
       if (o && o.bounds) {
-        var c0 = u.centro(o.bounds);
+        var ini = u.ancoraRetangulo(o.bounds, pontoMouse);
+        var ehMensagem = conexaoAtiva.tipoFluxo === 'messageFlow' || this.modo === 'conectar-mensagem';
         u.el('line', {
-          x1: c0.x, y1: c0.y, x2: pontoMouse.x, y2: pontoMouse.y,
-          class: 'linha-conexao-previa' + (this.modo === 'conectar-mensagem' ? ' mensagem' : '')
+          x1: ini.x, y1: ini.y, x2: pontoMouse.x, y2: pontoMouse.y,
+          class: 'linha-conexao-previa' + (ehMensagem ? ' mensagem' : '') +
+            (conexaoAtiva.alvoInvalido ? ' invalida' : '')
         }, g);
+        u.el('circle', { cx: pontoMouse.x, cy: pontoMouse.y, r: 4, class: 'ponta-conexao-previa' + (conexaoAtiva.alvoInvalido ? ' invalida' : '') }, g);
       }
     }
+  };
+
+  /* ------------------------------------------- pad de acoes rapidas */
+
+  var ICONES = {
+    conectar: 'M 3.5 8 h 7 M 8 5 l 3 3 l -3 3',
+    mensagem: 'M 2.5 4.5 h 11 v 7 h -11 z M 2.5 4.5 L 8 9 L 13.5 4.5',
+    relogio: 'M 8 3.4 a 4.6 4.6 0 1 0 0.01 0 M 8 5.4 V 8 l 2 1.6',
+    duplicar: 'M 5.5 2.5 h 8 v 8 M 2.5 5.5 h 8 v 8 h -8 z',
+    lixeira: 'M 3.5 5 h 9 M 6.5 5 V 3.4 h 3 V 5 M 5 5 l 0.7 8.2 h 4.6 L 11 5',
+    editar: 'M 3 13 l 0.6 -2.6 l 7 -7 l 2 2 l -7 7 z M 10 4 l 2 2'
+  };
+
+  /** Botoes flutuantes ao lado do elemento selecionado (tamanho fixo na tela). */
+  Editor.prototype._desenharPad = function (g, id) {
+    var m = this.modelo();
+    var el = m.elementos[id];
+    if (!el || !el.bounds) return;
+    if (spec.categoria(el.tipo) === 'container') return; // piscina/raia nao tem pad
+    var self = this;
+
+    var acoes = [];
+    if (spec.podeSerOrigemSequencia(el.tipo)) {
+      acoes.push({
+        icone: 'conectar', titulo: 'Ligar a outro elemento (arraste ou clique e depois clique no destino)',
+        aoApertar: function (ev) { self._iniciarConexao(id, 'sequenceFlow', ev); }
+      });
+    }
+    if (spec.podeSerOrigemMensagem(el.tipo, el.definicoes)) {
+      acoes.push({
+        icone: 'mensagem', titulo: 'Enviar mensagem para outra piscina',
+        aoApertar: function (ev) { self._iniciarConexao(id, 'messageFlow', ev); }
+      });
+    }
+    if (spec.ehAtividade(el.tipo)) {
+      acoes.push({
+        icone: 'relogio', titulo: 'Anexar evento de borda (temporizador)',
+        aoApertar: function () { self.adicionarBorda(id, 'timer'); }
+      });
+    }
+    acoes.push({
+      icone: 'editar', titulo: 'Renomear e editar propriedades',
+      aoApertar: function () { self.app.focarNomeNasPropriedades(id); }
+    });
+    acoes.push({
+      icone: 'duplicar', titulo: 'Duplicar elemento',
+      aoApertar: function () { self.duplicar(id); }
+    });
+    acoes.push({
+      icone: 'lixeira', titulo: 'Excluir (Delete)', perigo: true,
+      aoApertar: function () { self.excluirSelecao(); }
+    });
+
+    var b = el.bounds;
+    var esc = this.r.escala || 1;
+    var pad = u.el('g', {
+      class: 'pad-acoes',
+      transform: 'translate(' + (b.x + b.width) + ',' + b.y + ') scale(' + (1 / esc) + ')'
+    }, g);
+
+    acoes.forEach(function (a, i) {
+      var y = i * 27;
+      var bt = u.el('g', { class: 'pad-botao' + (a.perigo ? ' perigo' : ''), transform: 'translate(12,' + y + ')' }, pad);
+      u.el('rect', { x: 0, y: 0, width: 24, height: 24, rx: 5, class: 'pad-fundo' }, bt);
+      u.el('path', { d: ICONES[a.icone], class: 'pad-icone', transform: 'translate(4,4)' }, bt);
+      var t = u.el('title', {}, bt);
+      t.textContent = a.titulo;
+      bt.addEventListener('mousedown', function (ev) {
+        ev.stopPropagation();
+        ev.preventDefault();
+        a.aoApertar(ev);
+      });
+    });
+  };
+
+  /** Comeca uma conexao a partir do pad: aceita arrastar ate o alvo ou clicar nele. */
+  Editor.prototype._iniciarConexao = function (origemId, tipoFluxo, ev) {
+    this.modo = tipoFluxo === 'messageFlow' ? 'conectar-mensagem' : 'conectar-sequencia';
+    this.r.svg.setAttribute('data-modo', this.modo);
+    this.conexao = { origem: origemId, tipoFluxo: tipoFluxo };
+    this.app.atualizarBarraModo();
+    if (ev) {
+      this.arrasto = { tipo: 'conectando', origem: origemId, tipoFluxo: tipoFluxo, moveu: false };
+    }
+    this.app.mostrarDica(tipoFluxo === 'messageFlow'
+      ? 'Arraste ate um elemento de OUTRA piscina, ou solte e clique no destino.'
+      : 'Arraste ate o proximo elemento, ou solte e clique no destino.');
+  };
+
+  /** Qual elemento do diagrama esta sob o ponteiro? */
+  Editor.prototype._elementoEm = function (clientX, clientY) {
+    var alvo = document.elementFromPoint(clientX, clientY);
+    if (!alvo || !alvo.closest) return null;
+    var grupo = alvo.closest('.bpmn-no, .bpmn-piscina, .bpmn-raia');
+    if (!grupo) return null;
+    return grupo.getAttribute('data-id');
+  };
+
+  /** Move a selecao (usado pelas setas do teclado). */
+  Editor.prototype.mover = function (dx, dy) {
+    var m = this.modelo();
+    var self = this;
+    if (!dx && !dy) return;
+    this.selecao.forEach(function (id) {
+      var e = m.elementos[id];
+      if (!e || !e.bounds) return;
+      e.bounds.x += dx;
+      e.bounds.y += dy;
+      self._filhosDe(id).forEach(function (f) {
+        var c = m.elementos[f.id];
+        if (c && c.bounds) { c.bounds.x += dx; c.bounds.y += dy; }
+      });
+    });
+    this._limparWaypointsAfetados(this.selecao);
+    this.reatribuirContainers(this.selecao);
+    this.app.marcarAlterado();
+    this.app.redesenhar();
+  };
+
+  /** Copia um elemento deslocado, mantendo tipo e parametros. */
+  Editor.prototype.duplicar = function (id) {
+    var m = this.modelo();
+    var e = m.elementos[id];
+    if (!e || !e.bounds) return;
+    this.snapshot();
+    var copia = JSON.parse(JSON.stringify(e));
+    copia.id = u.uid(e.tipo.charAt(0).toUpperCase() + e.tipo.slice(1));
+    copia.bounds = { x: e.bounds.x + 40, y: e.bounds.y + 40, width: e.bounds.width, height: e.bounds.height };
+    copia.entradas = []; copia.saidas = []; copia.bordas = [];
+    delete copia.labelBounds;
+    if (copia.tipo === 'boundaryEvent') copia.tipo = 'intermediateCatchEvent';
+    SB.parser.addElemento(m, copia);
+    this.reatribuirContainers([copia.id]);
+    SB.parser.indexar(m);
+    this.app.marcarAlterado();
+    this.app.redesenhar();
+    this.selecionar([copia.id], 'canvas');
+    this.app.mostrarDica('Elemento duplicado.');
   };
 
   /* --------------------------------------------------- criacao */
@@ -423,7 +675,7 @@
     SB.parser.indexar(m);
     this.app.marcarAlterado();
     this.app.redesenhar();
-    this.selecionar([novo.id]);
+    this.selecionar([novo.id], 'canvas');
     if (!this.app.fixarPaleta) this.definirModo('selecionar');
     this.app.focarNomeNasPropriedades(novo.id);
   };
@@ -545,7 +797,7 @@
     SB.parser.indexar(m);
     this.app.marcarAlterado();
     this.app.redesenhar();
-    this.selecionar([f.id]);
+    this.selecionar([f.id], 'canvas');
     this.app.mostrarDica('Fluxo criado.');
     return f;
   };

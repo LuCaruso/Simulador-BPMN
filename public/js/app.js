@@ -30,10 +30,14 @@
     iniciarTema();
     montarPaleta();
     ligarUI();
+    ligarArrastarSoltar();
+    ligarBoasVindas();
     carregarListaArquivos();
     var m = SB.Editor.modeloVazio(true);
     App.definirModelo(m, { semSnapshot: true, nome: null });
     setTimeout(function () { App.r.ajustarNaTela(); }, 50);
+    App.atualizarAcoesDependentes();
+    App.abrirBoasVindas(false);
     laco();
   }
 
@@ -199,6 +203,8 @@
       .catch(function (e) { App.mostrarDica('Falha ao salvar: ' + e.message, 'erro'); });
   }
 
+  App.salvar = function () { salvarNoServidor(); };
+
   function sugerirNome() {
     var base = (App.modelo && App.modelo.nome ? App.modelo.nome : 'diagrama')
       .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -323,22 +329,99 @@
     var cont = $('#paleta');
     cont.innerHTML = '';
     spec.PALETA.forEach(function (g) {
-      cont.appendChild(u.h('div', { class: 'paleta-grupo', text: g.grupo }));
+      var secao = u.h('div', { class: 'paleta-secao', 'data-grupo': g.grupo });
+      var cabecalho = u.h('button', { class: 'paleta-grupo', type: 'button' }, [
+        u.h('span', { class: 'paleta-seta', text: '▾' }),
+        u.h('span', { text: g.grupo })
+      ]);
       var grade = u.h('div', { class: 'paleta-grade' });
+      cabecalho.addEventListener('click', function () { secao.classList.toggle('recolhida'); });
+
       g.itens.forEach(function (it) {
+        var descricao = it.rotulo + '  —  ' + spec.rotulo(it.tipo) +
+          '\nClique e depois clique no diagrama, ou arraste direto para o diagrama.';
         var btn = u.h('button', {
-          class: 'paleta-item', title: it.rotulo + ' - ' + spec.rotulo(it.tipo),
-          'data-tipo': it.tipo, 'data-def': it.def || ''
+          class: 'paleta-item', title: descricao, draggable: 'true',
+          'data-tipo': it.tipo, 'data-def': it.def || '', 'data-busca': (it.rotulo + ' ' + spec.rotulo(it.tipo)).toLowerCase()
         }, [iconePaleta(it), u.h('span', { class: 'paleta-rotulo', text: it.rotulo })]);
+
         btn.addEventListener('click', function () {
+          var jaAtivo = btn.classList.contains('ativo');
           u.$$('.paleta-item').forEach(function (b) { b.classList.remove('ativo'); });
+          if (jaAtivo) {
+            App.editor.definirModo('selecionar');
+            return;
+          }
           btn.classList.add('ativo');
           App.editor.definirModo('criar', it.tipo, it.def);
-          App.mostrarDica('Clique no diagrama para inserir: ' + it.rotulo);
+          App.mostrarDica('Agora clique no diagrama para posicionar: ' + it.rotulo);
         });
+
+        // arrastar direto da paleta para o diagrama
+        btn.addEventListener('dragstart', function (ev) {
+          ev.dataTransfer.effectAllowed = 'copy';
+          ev.dataTransfer.setData('text/plain', it.tipo + '|' + (it.def || ''));
+          App._arrastandoPaleta = { tipo: it.tipo, def: it.def || null };
+          btn.classList.add('arrastando');
+        });
+        btn.addEventListener('dragend', function () {
+          btn.classList.remove('arrastando');
+          App._arrastandoPaleta = null;
+        });
+
         grade.appendChild(btn);
       });
-      cont.appendChild(grade);
+
+      secao.appendChild(cabecalho);
+      secao.appendChild(grade);
+      cont.appendChild(secao);
+    });
+  }
+
+  /** Filtra a paleta pelo texto digitado. */
+  function filtrarPaleta(texto) {
+    var q = String(texto || '').trim().toLowerCase();
+    u.$$('.paleta-secao').forEach(function (secao) {
+      var visiveis = 0;
+      u.$$('.paleta-item', secao).forEach(function (it) {
+        var bate = !q || (it.getAttribute('data-busca') || '').indexOf(q) !== -1;
+        it.classList.toggle('oculto', !bate);
+        if (bate) visiveis++;
+      });
+      secao.classList.toggle('oculto', visiveis === 0);
+      if (q) secao.classList.remove('recolhida');
+    });
+    $('#paleta-vazia').classList.toggle('oculto', u.$$('.paleta-item:not(.oculto)').length > 0);
+  }
+
+  /** Recebe o elemento arrastado da paleta e cria no ponto solto. */
+  function ligarArrastarSoltar() {
+    var svg = $('#canvas');
+    svg.addEventListener('dragover', function (ev) {
+      if (!App._arrastandoPaleta) return;
+      ev.preventDefault();
+      ev.dataTransfer.dropEffect = 'copy';
+      svg.classList.add('recebendo');
+    });
+    svg.addEventListener('dragleave', function () { svg.classList.remove('recebendo'); });
+    svg.addEventListener('drop', function (ev) {
+      svg.classList.remove('recebendo');
+      var dados = App._arrastandoPaleta;
+      if (!dados) {
+        var txt = ev.dataTransfer.getData('text/plain') || '';
+        if (txt.indexOf('|') === -1) return;
+        dados = { tipo: txt.split('|')[0], def: txt.split('|')[1] || null };
+      }
+      ev.preventDefault();
+      if (!App.editor.habilitado) {
+        App.mostrarDica('Pare a simulacao para editar o diagrama.', 'aviso');
+        return;
+      }
+      var p = App.r.paraDiagrama(ev.clientX, ev.clientY);
+      App.editor.definirModo('criar', dados.tipo, dados.def);
+      App.editor.criarNoPonto(p);
+      App.editor.definirModo('selecionar');
+      u.$$('.paleta-item').forEach(function (b) { b.classList.remove('ativo'); });
     });
   }
 
@@ -452,12 +535,7 @@
       App.mostrarDica('Clique na origem e depois no destino do fluxo de mensagem (piscinas diferentes).');
     });
     $('#btn-excluir').addEventListener('click', function () { App.editor.excluirSelecao(); });
-    $('#btn-borda-timer').addEventListener('click', function () {
-      App.editor.adicionarBorda(App.editor.selecao[0], 'timer');
-    });
-    $('#btn-borda-erro').addEventListener('click', function () {
-      App.editor.adicionarBorda(App.editor.selecao[0], 'error');
-    });
+    // eventos de borda ficam no pad do elemento e no menu do botao direito
     $('#chk-fixar-paleta').addEventListener('change', function (e) { App.fixarPaleta = e.target.checked; });
 
     u.$$('#painel-abas button').forEach(function (b) {
@@ -489,6 +567,38 @@
     $('#btn-validar').addEventListener('click', function () { App.renderValidacao(true); });
     $('#btn-exportar-csv').addEventListener('click', exportarCsv);
 
+    // busca na paleta
+    var busca = $('#paleta-busca');
+    busca.addEventListener('input', function () { filtrarPaleta(busca.value); });
+    busca.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Escape') { busca.value = ''; filtrarPaleta(''); busca.blur(); }
+      if (ev.key === 'Enter') {
+        var primeiro = u.$$('.paleta-item:not(.oculto)')[0];
+        if (primeiro) primeiro.click();
+      }
+    });
+    $('#paleta-limpar').addEventListener('click', function () {
+      busca.value = ''; filtrarPaleta(''); busca.focus();
+    });
+
+    // menu "Exportar"
+    var menuExp = $('#menu-exportar');
+    $('#btn-exportar').addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      menuExp.classList.toggle('oculto');
+    });
+    u.$$('#menu-exportar button').forEach(function (b) {
+      b.addEventListener('click', function () { menuExp.classList.add('oculto'); });
+    });
+
+    // fecha menus flutuantes ao clicar fora
+    document.addEventListener('mousedown', function (ev) {
+      if (!ev.target.closest || !ev.target.closest('#menu-contexto')) App.fecharMenuContexto();
+      if (!ev.target.closest || (!ev.target.closest('#menu-exportar') && !ev.target.closest('#btn-exportar'))) {
+        menuExp.classList.add('oculto');
+      }
+    });
+
     window.addEventListener('resize', function () { App.editor.desenharAuxiliares(); });
     window.addEventListener('beforeunload', function (e) {
       if (App.alterado) { e.preventDefault(); e.returnValue = ''; }
@@ -502,6 +612,7 @@
     if (modo === 'conectar-sequencia') $('#btn-conectar').classList.add('ativo');
     if (modo === 'conectar-mensagem') $('#btn-conectar-msg').classList.add('ativo');
     if (modo !== 'criar') u.$$('.paleta-item').forEach(function (b) { b.classList.remove('ativo'); });
+    App.atualizarDicaModo();
   };
 
   function irParaAba(nome) {
@@ -515,6 +626,149 @@
     if (nome === 'estatisticas') App.renderEstatisticas();
     if (nome === 'validacao') App.renderValidacao();
   }
+
+  /* ==================================================== menu de contexto */
+
+  App.fecharMenuContexto = function () {
+    var m = $('#menu-contexto');
+    if (m) m.classList.add('oculto');
+  };
+
+  App.abrirMenuContexto = function (x, y, id, pontoDiagrama) {
+    var menu = $('#menu-contexto');
+    var ed = App.editor;
+    var mod = App.modelo;
+    menu.innerHTML = '';
+
+    var itens = [];
+    var fluxo = id ? mod.fluxos[id] : null;
+    var el = id ? mod.elementos[id] : null;
+
+    if (el) {
+      itens.push({ rotulo: 'Renomear', atalho: 'F2', acao: function () { App.focarNomeNasPropriedades(id); } });
+      if (spec.podeSerOrigemSequencia(el.tipo)) {
+        itens.push({ rotulo: 'Ligar a outro elemento', acao: function () { ed._iniciarConexao(id, 'sequenceFlow'); } });
+      }
+      if (spec.podeSerOrigemMensagem(el.tipo, el.definicoes)) {
+        itens.push({ rotulo: 'Enviar mensagem para outra piscina', acao: function () { ed._iniciarConexao(id, 'messageFlow'); } });
+      }
+      if (spec.ehAtividade(el.tipo)) {
+        itens.push({ rotulo: 'Anexar borda de temporizador', acao: function () { ed.adicionarBorda(id, 'timer'); } });
+        itens.push({ rotulo: 'Anexar borda de erro', acao: function () { ed.adicionarBorda(id, 'error'); } });
+      }
+      itens.push({ separador: true });
+      itens.push({ rotulo: 'Duplicar', atalho: 'Ctrl+D', acao: function () { ed.duplicar(id); } });
+      itens.push({ rotulo: 'Excluir', atalho: 'Delete', perigo: true, acao: function () { ed.excluirSelecao(); } });
+    } else if (fluxo) {
+      itens.push({ rotulo: 'Renomear fluxo', atalho: 'F2', acao: function () { App.focarNomeNasPropriedades(id); } });
+      itens.push({ rotulo: 'Excluir fluxo', atalho: 'Delete', perigo: true, acao: function () { ed.excluirSelecao(); } });
+    } else {
+      itens.push({ rotulo: 'Inserir tarefa aqui', acao: function () { criarNoMenu('task', null, pontoDiagrama); } });
+      itens.push({ rotulo: 'Inserir gateway exclusivo aqui', acao: function () { criarNoMenu('exclusiveGateway', null, pontoDiagrama); } });
+      itens.push({ rotulo: 'Inserir evento de fim aqui', acao: function () { criarNoMenu('endEvent', 'none', pontoDiagrama); } });
+      itens.push({ separador: true });
+      itens.push({ rotulo: 'Reorganizar diagrama', acao: function () { $('#btn-reorganizar').click(); } });
+      itens.push({ rotulo: 'Ajustar a tela', acao: function () { App.r.ajustarNaTela(); App.editor.desenharAuxiliares(); } });
+    }
+
+    itens.forEach(function (it) {
+      if (it.separador) {
+        menu.appendChild(u.h('div', { class: 'menu-separador' }));
+        return;
+      }
+      var b = u.h('button', { class: 'menu-item' + (it.perigo ? ' perigo' : '') }, [
+        u.h('span', { text: it.rotulo }),
+        it.atalho ? u.h('kbd', { text: it.atalho }) : null
+      ]);
+      b.addEventListener('click', function () {
+        App.fecharMenuContexto();
+        it.acao();
+      });
+      menu.appendChild(b);
+    });
+
+    menu.classList.remove('oculto');
+    // mantem o menu dentro da janela
+    var r = menu.getBoundingClientRect();
+    var px = Math.min(x, window.innerWidth - r.width - 8);
+    var py = Math.min(y, window.innerHeight - r.height - 8);
+    menu.style.left = Math.max(4, px) + 'px';
+    menu.style.top = Math.max(4, py) + 'px';
+  };
+
+  function criarNoMenu(tipo, def, ponto) {
+    App.editor.definirModo('criar', tipo, def);
+    App.editor.criarNoPonto(ponto);
+    App.editor.definirModo('selecionar');
+  }
+
+  /* ======================================================== onboarding */
+
+  var CHAVE_BOAS_VINDAS = 'simuladorBpmn.boasVindasVista';
+
+  App.abrirBoasVindas = function (forcado) {
+    if (!forcado) {
+      try { if (localStorage.getItem(CHAVE_BOAS_VINDAS) === '1') return; } catch (e) { /* ignora */ }
+    }
+    $('#boas-vindas').classList.remove('oculto');
+  };
+
+  function ligarBoasVindas() {
+    $('#bv-fechar').addEventListener('click', function () {
+      if ($('#bv-nao-mostrar').checked) {
+        try { localStorage.setItem(CHAVE_BOAS_VINDAS, '1'); } catch (e) { /* ignora */ }
+      }
+      $('#boas-vindas').classList.add('oculto');
+    });
+    $('#bv-exemplo').addEventListener('click', function () {
+      $('#boas-vindas').classList.add('oculto');
+      try { localStorage.setItem(CHAVE_BOAS_VINDAS, '1'); } catch (e) { /* ignora */ }
+      var sel = $('#lista-arquivos');
+      var alvo = Array.prototype.map.call(sel.options, function (o) { return o.value; })
+        .filter(function (v) { return v; })[0];
+      if (alvo) { sel.value = alvo; abrirDoServidor(alvo); }
+    });
+    $('#btn-ajuda').addEventListener('click', function () { App.abrirBoasVindas(true); });
+  }
+
+  /* ================================================= dicas contextuais */
+
+  var DICAS_MODO = {
+    'selecionar': 'Clique para selecionar · arraste o fundo para mover a tela · duplo clique no vazio cria uma tarefa',
+    'criar': 'Clique no diagrama para posicionar o elemento · Esc cancela',
+    'conectar-sequencia': 'Clique na origem e depois no destino · Esc cancela',
+    'conectar-mensagem': 'Ligue elementos de piscinas diferentes · Esc cancela'
+  };
+
+  App.atualizarDicaModo = function () {
+    var barra = $('#dica-modo');
+    if (!barra) return;
+    if (!App.editor.habilitado) {
+      barra.textContent = 'Simulacao em andamento — a edicao fica bloqueada. Use Reiniciar para voltar a editar.';
+      barra.className = 'dica-modo simulando';
+      return;
+    }
+    if (App.editor.conexao) {
+      barra.textContent = 'Ligando a partir de "' + nomeDe(App.editor.conexao.origem) + '" — clique no destino (Esc cancela)';
+      barra.className = 'dica-modo ligando';
+      return;
+    }
+    barra.textContent = DICAS_MODO[App.editor.modo] || DICAS_MODO['selecionar'];
+    barra.className = 'dica-modo';
+  };
+
+  /** Habilita/desabilita botoes que dependem da selecao. */
+  App.atualizarAcoesDependentes = function () {
+    var n = App.editor ? App.editor.selecao.length : 0;
+    var umaAtividade = n === 1 && App.modelo &&
+      App.modelo.elementos[App.editor.selecao[0]] &&
+      spec.ehAtividade(App.modelo.elementos[App.editor.selecao[0]].tipo);
+    var d = function (sel, ligado) { var b = $(sel); if (b) b.disabled = !ligado; };
+    d('#btn-excluir', n > 0);
+    d('#btn-borda-timer', umaAtividade);
+    d('#btn-borda-erro', umaAtividade);
+    App.atualizarDicaModo();
+  };
 
   App.mostrarDica = function (texto, tipo) {
     var d = $('#dica');
@@ -552,12 +806,20 @@
     if (campo) { campo.focus(); campo.select(); }
   };
 
-  App.mostrarPropriedades = function (ids) {
+  App.mostrarPropriedades = function (ids, origem) {
     var cont = $('#props-conteudo');
     cont.innerHTML = '';
     var m = App.modelo;
+    // selecao feita no diagrama abre as propriedades sozinha
+    if (origem === 'canvas' && ids && ids.length === 1 && App.aba !== 'propriedades') {
+      irParaAba('propriedades');
+    }
     if (!ids || ids.length === 0) {
-      cont.appendChild(u.h('p', { class: 'vazio', text: 'Nenhum elemento selecionado. Clique em um elemento do diagrama, ou use a paleta para criar um novo.' }));
+      cont.appendChild(u.h('div', { class: 'estado-vazio' }, [
+        u.h('strong', { text: 'Nenhum elemento selecionado' }),
+        u.h('p', { text: 'Clique em qualquer elemento do diagrama para editar nome, tipo, duracao e custo.' }),
+        u.h('p', { class: 'campo-ajuda', text: 'Para criar: arraste um item da paleta para o diagrama, ou clique no item e depois no diagrama. Duplo clique no espaco vazio insere uma tarefa.' })
+      ]));
       cont.appendChild(blocoProcesso());
       return;
     }
@@ -914,8 +1176,10 @@
     } else {
       if (App.sim.encerrado) reiniciarSim();
       App.editor.habilitado = false;
+      App.editor.selecionar([]);
       var ok = App.sim.iniciar();
       if (!ok) { App.editor.habilitado = true; App.mostrarDica('Adicione um evento de inicio para simular.', 'erro'); }
+      App.atualizarAcoesDependentes();
       irParaAba('simulacao');
     }
     atualizarBotaoPlay();
@@ -936,6 +1200,7 @@
     if (!App.sim) return;
     App.sim.reiniciar();
     App.editor.habilitado = true;
+    App.atualizarAcoesDependentes();
     $('#sim-log').innerHTML = '';
     App.r.limparEstados();
     App.redesenhar();
